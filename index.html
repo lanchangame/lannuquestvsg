@@ -109,6 +109,7 @@
         
         let player={x:135, y:3300}, enemies=[], gameActive=false, startTime, finalScore, shareText="", life=5, invincibilityFrames=0, damagePenalty=0;
         let lastTickSecond = 40, dodgeRemaining = 5, dodgeActive = false, dodgeBonus = 0, hasContinued = false, boostTimer = 0, dodgeTimer = null, lastDodgePressTime = 0, dodgeWasSuccessful = false;
+        let lastFrameTime = 0;
         const viewHeight=400, RANKING_KEY='lannu_ranking_final', TIME_LIMIT = 40000;
 
         const keysPressed = {};
@@ -135,6 +136,7 @@
 
         function startGame(){ 
             playSE('start'); startScreen.style.display='none'; gameActive=true; startTime=Date.now(); 
+            lastFrameTime = 0;
             setInterval(createEnemy, 280); requestAnimationFrame(loop); 
         }
 
@@ -212,10 +214,10 @@
             enemies.push({el:eDiv, x:x+14, y:y+14});
         }
 
-        function moveEnemies(){
+        function moveEnemies(dtMultiplier){
             const pX=player.x+25, pY=player.y+25;
             enemies.forEach((e,n)=>{
-                e.y+=4.1; 
+                e.y+=4.1 * dtMultiplier; 
                 if(e.el)e.el.style.top=(e.y-14)+'px';
                 
                 const dist = Math.sqrt((e.x-pX)**2+(e.y-pY)**2);
@@ -253,14 +255,19 @@
             });
         }
 
-        function loop(){
+        function loop(timestamp){
             if(!gameActive)return;
+            if(!lastFrameTime) lastFrameTime = timestamp;
+            let dt = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+            let dtMultiplier = dt / (1000 / 60);
+
             let elapsed = Date.now() - startTime; let remaining = Math.max(0, (TIME_LIMIT - elapsed) / 1000);
             timerElement.innerText = remaining.toFixed(1);
             if (elapsed >= TIME_LIMIT) { gameActive = false; showResult(false, true); return; }
-            if(invincibilityFrames>0)invincibilityFrames--;
-            if(boostTimer>0)boostTimer--;
-            moveEnemies(); updateView(); requestAnimationFrame(loop);
+            if(invincibilityFrames>0)invincibilityFrames -= dtMultiplier;
+            if(boostTimer>0)boostTimer -= dtMultiplier;
+            moveEnemies(dtMultiplier); updateView(); requestAnimationFrame(loop);
         }
 
         function showResult(w, isTimeUp = false){
@@ -278,7 +285,7 @@
             inputArea.style.display="block"; btnSave.style.display=btnShare.style.display="block"; btnRetry.style.display="none";
         }
 
-        btnContinue.onclick = () => { life = 5; dodgeRemaining = 5; hasContinued = true; dialog.style.display = "none"; gameActive = true; requestAnimationFrame(loop); updateView(); };
+        btnContinue.onclick = () => { life = 5; dodgeRemaining = 5; hasContinued = true; dialog.style.display = "none"; gameActive = true; lastFrameTime = 0; requestAnimationFrame(loop); updateView(); };
         btnSave.onclick=()=>{saveScore(nameInput.value||"師に並んだランぬ",finalScore); location.reload();};
         btnShare.onclick=()=>{window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`,'_blank');};
         btnRetry.onclick=()=>location.reload();
